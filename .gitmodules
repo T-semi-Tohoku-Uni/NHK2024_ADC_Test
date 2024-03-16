@@ -1,5 +1,5 @@
-[submodule "Core/Inc/NHK2024_Library"]
-	path = Core/Inc/NHK2024_Library
+[submodule "Core/--force"]
+	path = Core/--force
 	url = git@github.com:T-semi-Tohoku-Uni/NHK2024_Library.git
 [submodule "Core/NHK2024_Library"]
 	path = Core/NHK2024_Library

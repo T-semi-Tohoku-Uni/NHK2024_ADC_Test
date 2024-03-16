@@ -22,7 +22,8 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
-#include "filter.c"
+#include "filter.h"
+//#include "filter.c"
 #include "stm32g4xx_ll_system.h"
 /* USER CODE END Includes */
 
@@ -66,10 +67,10 @@ void LOW_PASS_FILTER_INIT(void);
 /* USER CODE BEGIN 0 */
 void LOW_PASS_FILTER_INIT(void) {
 	/*
-	 * 制御周期 : 10KHz
-	 * カットオフ周波数 : 100KHz
+	 * 制御周期 : 500KHz
+	 * カットオフ周波数 : 10KHz
 	 */
-	low_pass_filter_settings = low_pass_filter_init(1e-03, 1e-04);
+	low_pass_filter_settings = low_pass_filter_init(2e-5, 1e-4);
 }
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
@@ -78,11 +79,11 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
     	int val;
     	int filter_val;
     	HAL_ADC_Start(&hadc1);
-		if(HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY) == HAL_OK) {
+		if(HAL_ADC_PollForConversion(&hadc1, 1) == HAL_OK) {
 			HAL_ADC_Stop(&hadc1);
 			val = HAL_ADC_GetValue(&hadc1);
-			filter_val = (int)low_pass_filter_update(low_pass_filter_settings, val);
-			printf("%d\r\n", filter_val);
+//			filter_val = (int)low_pass_filter_update(low_pass_filter_settings, val);
+			printf("%d\r\n", val);
 			//ADC変換終了を待機
 		} else {
 			printf("error\r\n");
@@ -333,7 +334,7 @@ static void MX_TIM6_Init(void)
   htim6.Instance = TIM6;
   htim6.Init.Prescaler = 16;
   htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim6.Init.Period = 999;
+  htim6.Init.Period = 49;
   htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
   {
