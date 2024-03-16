@@ -22,6 +22,8 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
+#include "filter.c"
+#include "stm32g4xx_ll_system.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -44,8 +46,10 @@ ADC_HandleTypeDef hadc1;
 
 UART_HandleTypeDef hlpuart1;
 
-/* USER CODE BEGIN PV */
+TIM_HandleTypeDef htim6;
 
+/* USER CODE BEGIN PV */
+Low_Pass_Filter_Settings* low_pass_filter_settings = NULL;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -53,12 +57,39 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_LPUART1_UART_Init(void);
 static void MX_ADC1_Init(void);
+static void MX_TIM6_Init(void);
 /* USER CODE BEGIN PFP */
-
+void LOW_PASS_FILTER_INIT(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+void LOW_PASS_FILTER_INIT(void) {
+	/*
+	 * 制御周期 : 10KHz
+	 * カットオフ周波数 : 100KHz
+	 */
+	low_pass_filter_settings = low_pass_filter_init(1e-03, 1e-04);
+}
+
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+    if (htim == &htim6){ // 10KHz
+    	int val;
+    	int filter_val;
+    	HAL_ADC_Start(&hadc1);
+		if(HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY) == HAL_OK) {
+			HAL_ADC_Stop(&hadc1);
+			val = HAL_ADC_GetValue(&hadc1);
+			filter_val = (int)low_pass_filter_update(low_pass_filter_settings, val);
+			printf("%d\r\n", filter_val);
+			//ADC変換終了を待機
+		} else {
+			printf("error\r\n");
+		}
+    }
+}
+
 int _write(int file, char *ptr, int len)
 {
     HAL_UART_Transmit(&hlpuart1,(uint8_t *)ptr,len,8);
@@ -96,26 +127,30 @@ int main(void)
   MX_GPIO_Init();
   MX_LPUART1_UART_Init();
   MX_ADC1_Init();
+  MX_TIM6_Init();
   /* USER CODE BEGIN 2 */
-
+  HAL_TIM_Base_Start_IT(&htim6);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  int val;
+//  LL_VREFBUF_Enable();
+  LL_VREFBUF_SetVoltageScaling(LL_VREFBUF_VOLTAGE_SCALE2);
+//  printf("vrefint %d\r\n", Vrefinit_ADC);
+  HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED);
   while (1)
   {
-    HAL_ADC_Start(&hadc1);
-	if(HAL_ADC_PollForConversion(&hadc1, 100) == HAL_OK) {
-		HAL_ADC_Stop(&hadc1);
-		val = HAL_ADC_GetValue(&hadc1);
-		printf("%d\r\n", val);
-		//ADC変換終了を待機
-	} else {
-		printf("error\r\n");
-	}
-
-	HAL_Delay(100);
+//    HAL_ADC_Start(&hadc1);
+//	if(HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY) == HAL_OK) {
+//		HAL_ADC_Stop(&hadc1);
+//		val = HAL_ADC_GetValue(&hadc1);
+//		printf("%d\r\n", val);
+//		//ADC変換終了を待機
+//	} else {
+//		printf("error\r\n");
+//	}
+//
+//	HAL_Delay(100);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -185,7 +220,7 @@ static void MX_ADC1_Init(void)
   /** Common config
   */
   hadc1.Instance = ADC1;
-  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV2;
+  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
   hadc1.Init.Resolution = ADC_RESOLUTION_12B;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
   hadc1.Init.GainCompensation = 0;
@@ -217,7 +252,7 @@ static void MX_ADC1_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_1;
   sConfig.Rank = ADC_REGULAR_RANK_1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_2CYCLES_5;
+  sConfig.SamplingTime = ADC_SAMPLETIME_640CYCLES_5;
   sConfig.SingleDiff = ADC_SINGLE_ENDED;
   sConfig.OffsetNumber = ADC_OFFSET_NONE;
   sConfig.Offset = 0;
@@ -275,6 +310,44 @@ static void MX_LPUART1_UART_Init(void)
   /* USER CODE BEGIN LPUART1_Init 2 */
 
   /* USER CODE END LPUART1_Init 2 */
+
+}
+
+/**
+  * @brief TIM6 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM6_Init(void)
+{
+
+  /* USER CODE BEGIN TIM6_Init 0 */
+
+  /* USER CODE END TIM6_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM6_Init 1 */
+
+  /* USER CODE END TIM6_Init 1 */
+  htim6.Instance = TIM6;
+  htim6.Init.Prescaler = 16;
+  htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim6.Init.Period = 999;
+  htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim6, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM6_Init 2 */
+
+  /* USER CODE END TIM6_Init 2 */
 
 }
 
