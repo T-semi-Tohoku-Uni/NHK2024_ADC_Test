@@ -67,10 +67,10 @@ void LOW_PASS_FILTER_INIT(void);
 /* USER CODE BEGIN 0 */
 void LOW_PASS_FILTER_INIT(void) {
 	/*
-	 * 制御周期 : 500KHz
-	 * カットオフ周波数 : 10KHz
+	 * 制御周期 : 1000Hz
+	 * カットオフ周波数 : 50Hz
 	 */
-	low_pass_filter_settings = low_pass_filter_init(2e-5, 1e-4);
+	low_pass_filter_settings = low_pass_filter_init(1e-3, 5e-2);
 }
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
@@ -79,14 +79,14 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
     	int val;
     	int filter_val;
     	HAL_ADC_Start(&hadc1);
-		if(HAL_ADC_PollForConversion(&hadc1, 1) == HAL_OK) {
+		if(HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK) {
 			HAL_ADC_Stop(&hadc1);
 			val = HAL_ADC_GetValue(&hadc1);
 //			filter_val = (int)low_pass_filter_update(low_pass_filter_settings, val);
-			printf("%d\r\n", val);
+			printf("%d\r\n", val / 8);
 			//ADC変換終了を待機
 		} else {
-			printf("error\r\n");
+			printf("error\n");
 		}
     }
 }
@@ -136,7 +136,7 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 //  LL_VREFBUF_Enable();
-  LL_VREFBUF_SetVoltageScaling(LL_VREFBUF_VOLTAGE_SCALE2);
+//  LL_VREFBUF_SetVoltageScaling(LL_VREFBUF_VOLTAGE_SCALE2);
 //  printf("vrefint %d\r\n", Vrefinit_ADC);
   HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED);
   while (1)
@@ -235,7 +235,11 @@ static void MX_ADC1_Init(void)
   hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
   hadc1.Init.DMAContinuousRequests = DISABLE;
   hadc1.Init.Overrun = ADC_OVR_DATA_PRESERVED;
-  hadc1.Init.OversamplingMode = DISABLE;
+  hadc1.Init.OversamplingMode = ENABLE;
+  hadc1.Init.Oversampling.Ratio = ADC_OVERSAMPLING_RATIO_8;
+  hadc1.Init.Oversampling.RightBitShift = ADC_RIGHTBITSHIFT_NONE;
+  hadc1.Init.Oversampling.TriggeredMode = ADC_TRIGGEREDMODE_SINGLE_TRIGGER;
+  hadc1.Init.Oversampling.OversamplingStopReset = ADC_REGOVERSAMPLING_CONTINUED_MODE;
   if (HAL_ADC_Init(&hadc1) != HAL_OK)
   {
     Error_Handler();
@@ -251,7 +255,7 @@ static void MX_ADC1_Init(void)
 
   /** Configure Regular Channel
   */
-  sConfig.Channel = ADC_CHANNEL_1;
+  sConfig.Channel = ADC_CHANNEL_2;
   sConfig.Rank = ADC_REGULAR_RANK_1;
   sConfig.SamplingTime = ADC_SAMPLETIME_640CYCLES_5;
   sConfig.SingleDiff = ADC_SINGLE_ENDED;
@@ -334,7 +338,7 @@ static void MX_TIM6_Init(void)
   htim6.Instance = TIM6;
   htim6.Init.Prescaler = 16;
   htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim6.Init.Period = 49;
+  htim6.Init.Period = 999;
   htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
   {
